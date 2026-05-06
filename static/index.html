@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Musician App – Audio to Notes</title>
+<style>
+/* ── Reset & base ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0d0f14;
+  --surface:  #161923;
+  --card:     #1c2130;
+  --border:   #2a3047;
+  --accent:   #5b6af0;
+  --accent2:  #9b59f5;
+  --green:    #2ecc71;
+  --red:      #e74c3c;
+  --orange:   #e67e22;
+  --yellow:   #f1c40f;
+  --text:     #e8eaf6;
+  --muted:    #7b8296;
+  --note-on:  #5b6af0;
+  --bass-col: #e74c3c;
+  --mid-col:  #2ecc71;
+  --lead-col: #9b59f5;
+  --font: 'Segoe UI', system-ui, sans-serif;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); }
+body { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── Layout ───────────────────────────────────────────────────────── */
+header {
+  padding: 1.2rem 2rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 1rem;
+}
+header svg { flex-shrink: 0; }
+header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -.02em; }
+header p  { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+
+main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem 2rem 3rem; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+/* ── Recording panel ──────────────────────────────────────────────── */
+.record-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.record-btn {
+  width: 90px; height: 90px; border-radius: 50%;
+  border: 3px solid var(--red);
+  background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, transform .1s, box-shadow .3s;
+  position: relative;
+  flex-shrink: 0;
+}
+.record-btn:hover { background: rgba(231,76,60,.1); transform: scale(1.05); }
+.record-btn.active {
+  background: var(--red);
+  box-shadow: 0 0 0 8px rgba(231,76,60,.25), 0 0 0 16px rgba(231,76,60,.1);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.record-btn.active:hover { transform: scale(1.02); }
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 8px rgba(231,76,60,.25), 0 0 0 16px rgba(231,76,60,.1); }
+  50%      { box-shadow: 0 0 0 12px rgba(231,76,60,.35), 0 0 0 24px rgba(231,76,60,.07); }
+}
+.record-inner {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--red);
+  transition: border-radius .25s;
+}
+.record-btn.active .record-inner { border-radius: 6px; }
+
+.record-status { font-size: .95rem; color: var(--muted); }
+.record-status span { color: var(--text); font-weight: 600; }
+#timer { font-variant-numeric: tabular-nums; }
+
+/* Waveform canvas */
+#waveCanvas {
+  width: 100%; height: 80px;
+  background: var(--card);
+  border-radius: 8px;
+  display: block;
+}
+
+/* Upload zone */
+.upload-row {
+  display: flex; align-items: center; gap: .75rem;
+  font-size: .85rem; color: var(--muted);
+}
+.upload-row input[type=file] { display: none; }
+.upload-btn {
+  padding: .4rem .9rem; border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card); color: var(--text);
+  cursor: pointer; font-size: .85rem;
+  transition: border-color .15s;
+}
+.upload-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Analyze button */
+#analyzeBtn {
+  padding: .6rem 2rem; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none; color: #fff; font-size: 1rem; font-weight: 600;
+  cursor: pointer; transition: opacity .15s, transform .1s;
+}
+#analyzeBtn:disabled { opacity: .4; cursor: not-allowed; }
+#analyzeBtn:not(:disabled):hover { opacity: .9; transform: translateY(-1px); }
+
+/* Loading spinner */
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  display: none;
+}
+.spinner.visible { display: block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Key badge ────────────────────────────────────────────────────── */
+.summary-row {
+  display: flex; flex-wrap: wrap; gap: .75rem; align-items: center;
+}
+.badge {
+  padding: .35rem .9rem; border-radius: 20px;
+  font-size: .85rem; font-weight: 600;
+  border: 1px solid;
+}
+.badge-key   { background: rgba(91,106,240,.15); border-color: var(--accent); color: var(--accent); }
+.badge-tempo { background: rgba(155,89,245,.15); border-color: var(--accent2); color: var(--accent2); }
+.badge-dur   { background: rgba(46,204,113,.15); border-color: var(--green);  color: var(--green); }
+.badge-conf  { background: rgba(241,196,15,.15); border-color: var(--yellow); color: var(--yellow); }
+
+/* ── Piano keyboard ───────────────────────────────────────────────── */
+.piano-wrap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+.piano-wrap h3 { font-size: .85rem; color: var(--muted); margin-bottom: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+#pianoSvg { display: block; min-width: 600px; }
+
+/* ── Tabs ─────────────────────────────────────────────────────────── */
+.tabs { display: flex; gap: .5rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+.tab {
+  padding: .5rem 1.1rem; border-radius: 8px 8px 0 0;
+  border: 1px solid transparent; border-bottom: none;
+  background: transparent; color: var(--muted);
+  cursor: pointer; font-size: .9rem;
+  transition: background .12s, color .12s;
+}
+.tab:hover { background: var(--card); color: var(--text); }
+.tab.active { background: var(--card); border-color: var(--border); color: var(--text); font-weight: 600; }
+.tab-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+/* ── Section card ─────────────────────────────────────────────────── */
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+.section-card h2 {
+  font-size: 1rem; font-weight: 700;
+  margin-bottom: 1rem; color: var(--text);
+  display: flex; align-items: center; gap: .5rem;
+}
+
+/* ── Track waveform ──────────────────────────────────────────────── */
+.track-wave { height: 60px; width: 100%; background: var(--bg); border-radius: 6px; display: block; margin-bottom: 1rem; }
+
+/* ── Note roll ────────────────────────────────────────────────────── */
+.note-roll-wrap { overflow-x: auto; }
+#noteRollCanvas { display: block; min-width: 400px; border-radius: 6px; }
+
+/* ── Note list ────────────────────────────────────────────────────── */
+.note-list {
+  display: flex; flex-wrap: wrap; gap: .5rem;
+  max-height: 200px; overflow-y: auto;
+  padding: .25rem;
+}
+.note-chip {
+  padding: .25rem .6rem; border-radius: 6px;
+  font-size: .8rem; font-weight: 700; font-family: monospace;
+  background: rgba(91,106,240,.2); border: 1px solid var(--accent);
+  color: var(--accent); white-space: nowrap;
+}
+.note-chip.bass  { background: rgba(231,76,60,.2); border-color: var(--bass-col); color: var(--bass-col); }
+.note-chip.mid   { background: rgba(46,204,113,.2); border-color: var(--mid-col);  color: var(--mid-col); }
+.note-chip.treble{ background: rgba(155,89,245,.2); border-color: var(--lead-col); color: var(--lead-col); }
+
+/* ── Chord list ───────────────────────────────────────────────────── */
+.chord-list {
+  display: flex; flex-wrap: wrap; gap: .5rem;
+  max-height: 160px; overflow-y: auto;
+}
+.chord-chip {
+  padding: .3rem .7rem; border-radius: 8px;
+  font-size: .85rem; font-weight: 700;
+  background: rgba(241,196,15,.12); border: 1px solid var(--yellow);
+  color: var(--yellow);
+}
+
+/* ── Overtone table ───────────────────────────────────────────────── */
+.overtone-block { margin-bottom: 1rem; }
+.overtone-block h4 { font-size: .85rem; color: var(--muted); margin-bottom: .4rem; }
+.harmonic-bars { display: flex; flex-direction: column; gap: 4px; }
+.harmonic-row {
+  display: grid;
+  grid-template-columns: 3rem 5rem 5rem 1fr;
+  align-items: center; gap: .5rem;
+  font-size: .78rem;
+}
+.harmonic-row .h-label { color: var(--muted); text-align: right; }
+.harmonic-row .h-note  { font-weight: 700; font-family: monospace; }
+.harmonic-row .h-hz    { color: var(--muted); font-family: monospace; }
+.harmonic-bar-bg { background: var(--bg); border-radius: 4px; height: 8px; overflow: hidden; }
+.harmonic-bar    { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .4s; }
+
+/* ── Key signature panel ──────────────────────────────────────────── */
+.key-panel {
+  display: flex; align-items: flex-start; gap: 2rem;
+  flex-wrap: wrap;
+}
+.key-big { font-size: 3rem; font-weight: 900; line-height: 1; }
+.key-sub { font-size: .9rem; color: var(--muted); margin-top: .3rem; }
+.scale-notes { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .6rem; }
+.scale-note {
+  padding: .25rem .55rem; border-radius: 6px;
+  font-size: .8rem; font-weight: 700; font-family: monospace;
+  background: var(--card); border: 1px solid var(--border);
+}
+.scale-note.root { background: rgba(91,106,240,.25); border-color: var(--accent); color: var(--accent); }
+
+/* ── Empty state ──────────────────────────────────────────────────── */
+.empty { color: var(--muted); font-size: .9rem; text-align: center; padding: 2rem; }
+
+/* ── Error toast ──────────────────────────────────────────────────── */
+#errorToast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: #c0392b; color: #fff; padding: .7rem 1.4rem; border-radius: 8px;
+  font-size: .9rem; font-weight: 600; z-index: 999;
+  opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+#errorToast.show { opacity: 1; }
+
+/* ── Results section (hidden until analysis) ──────────────────────── */
+#results { display: none; }
+#results.visible { display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  main { padding: 1rem; }
+  .key-big { font-size: 2rem; }
+  .harmonic-row { grid-template-columns: 2.5rem 4rem 4rem 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+    <circle cx="18" cy="18" r="18" fill="#1c2130"/>
+    <path d="M10 24 L14 12 L18 20 L22 10 L26 24" stroke="#5b6af0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="26" cy="24" r="2.5" fill="#9b59f5"/>
+    <circle cx="10" cy="24" r="2.5" fill="#5b6af0"/>
+  </svg>
+  <div>
+    <h1>Musician App</h1>
+    <p>Record audio &rarr; get notes, chords, key signature &amp; harmonic analysis</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Recording panel ── -->
+  <div class="record-panel">
+    <canvas id="waveCanvas" height="80"></canvas>
+
+    <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:center;">
+      <button class="record-btn" id="recordBtn" title="Record">
+        <div class="record-inner"></div>
+      </button>
+      <div>
+        <div class="record-status">
+          Status: <span id="statusText">Ready</span>
+        </div>
+        <div class="record-status" style="margin-top:.3rem">
+          Time: <span id="timer">0:00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="upload-row">
+      <span>or upload a file:</span>
+      <label class="upload-btn" for="fileInput">Choose file</label>
+      <input type="file" id="fileInput" accept="audio/*,video/webm" />
+      <span id="fileLabel" style="color:var(--text)"></span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <button id="analyzeBtn" disabled>Analyze</button>
+      <div class="spinner" id="spinner"></div>
+    </div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div id="results">
+
+    <!-- Summary badges -->
+    <div class="summary-row" id="summaryBadges"></div>
+
+    <!-- Piano keyboard -->
+    <div class="piano-wrap">
+      <h3>Key &amp; Active Notes</h3>
+      <svg id="pianoSvg" height="90"></svg>
+    </div>
+
+    <!-- Tabs for tracks -->
+    <div class="section-card">
+      <div class="tabs" id="trackTabs"></div>
+      <div id="trackContent"></div>
+    </div>
+
+    <!-- Overtone analysis -->
+    <div class="section-card" id="overtoneSection">
+      <h2>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="opacity:.7">
+          <path d="M1 12 Q4 4 8 8 Q12 12 15 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        </svg>
+        Overtone / Harmonic Series
+      </h2>
+      <div id="overtoneContent"></div>
+    </div>
+
+  </div><!-- /results -->
+
+</main>
+
+<div id="errorToast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let mediaRecorder = null;
+let audioChunks   = [];
+let audioBlob     = null;
+let timerInterval = null;
+let startTime     = 0;
+let analyserNode  = null;
+let animFrame     = null;
+let analysisData  = null;
+let activeTrack   = 'full';
+
+const NOTE_NAMES    = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const MAJOR_SCALE   = [0,2,4,5,7,9,11];
+const MINOR_SCALE   = [0,2,3,5,7,8,10];
+const NOTE_COLORS   = {
+  full:   '#5b6af0',
+  bass:   '#e74c3c',
+  mid:    '#2ecc71',
+  treble: '#9b59f5',
+};
+
+// ── DOM refs ──────────────────────────────────────────────────────────────
+const recordBtn  = document.getElementById('recordBtn');
+const statusText = document.getElementById('statusText');
+const timerEl    = document.getElementById('timer');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const spinner    = document.getElementById('spinner');
+const fileInput  = document.getElementById('fileInput');
+const fileLabel  = document.getElementById('fileLabel');
+const waveCanvas = document.getElementById('waveCanvas');
+const waveCtx    = waveCanvas.getContext('2d');
+const resultsEl  = document.getElementById('results');
+const errorToast = document.getElementById('errorToast');
+
+// ── Resize canvas ─────────────────────────────────────────────────────────
+function resizeCanvas() {
+  waveCanvas.width  = waveCanvas.offsetWidth  * window.devicePixelRatio;
+  waveCanvas.height = waveCanvas.offsetHeight * window.devicePixelRatio;
+  waveCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ── Timer ─────────────────────────────────────────────────────────────────
+function startTimer() {
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    timerEl.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  }, 500);
+}
+function stopTimer() {
+  clearInterval(timerInterval);
+}
+
+// ── Live waveform ─────────────────────────────────────────────────────────
+function drawLiveWave(analyser) {
+  const buf  = new Uint8Array(analyser.frequencyBinCount);
+  const W    = waveCanvas.offsetWidth;
+  const H    = waveCanvas.offsetHeight;
+  function loop() {
+    animFrame = requestAnimationFrame(loop);
+    analyser.getByteTimeDomainData(buf);
+    waveCtx.clearRect(0, 0, W, H);
+    waveCtx.fillStyle = '#161923';
+    waveCtx.fillRect(0, 0, W, H);
+    waveCtx.beginPath();
+    waveCtx.strokeStyle = '#5b6af0';
+    waveCtx.lineWidth = 2;
+    const step = W / buf.length;
+    for (let i = 0; i < buf.length; i++) {
+      const y = (buf[i] / 128) * (H / 2);
+      i === 0 ? waveCtx.moveTo(i * step, y) : waveCtx.lineTo(i * step, y);
+    }
+    waveCtx.stroke();
+  }
+  loop();
+}
+
+function stopLiveWave() {
+  cancelAnimationFrame(animFrame);
+  animFrame = null;
+}
+
+function drawStaticWave(samples, color = '#5b6af0') {
+  const W = waveCanvas.offsetWidth;
+  const H = waveCanvas.offsetHeight;
+  waveCtx.clearRect(0, 0, W, H);
+  waveCtx.fillStyle = '#161923';
+  waveCtx.fillRect(0, 0, W, H);
+  if (!samples || samples.length === 0) return;
+  waveCtx.beginPath();
+  waveCtx.strokeStyle = color;
+  waveCtx.lineWidth = 1.5;
+  const mid  = H / 2;
+  const step = W / samples.length;
+  const maxA = Math.max(...samples.map(Math.abs)) || 1;
+  for (let i = 0; i < samples.length; i++) {
+    const y = mid - (samples[i] / maxA) * (mid * 0.85);
+    i === 0 ? waveCtx.moveTo(0, y) : waveCtx.lineTo(i * step, y);
+  }
+  waveCtx.stroke();
+}
+
+// ── Recording ─────────────────────────────────────────────────────────────
+recordBtn.addEventListener('click', async () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+
+  try {
+    const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioCtx = new AudioContext();
+    const source   = audioCtx.createMediaStreamSource(stream);
+    analyserNode   = audioCtx.createAnalyser();
+    analyserNode.fftSize = 2048;
+    source.connect(analyserNode);
+
+    mediaRecorder  = new MediaRecorder(stream);
+    audioChunks    = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+    mediaRecorder.onstop = () => {
+      stopLiveWave();
+      stopTimer();
+      stream.getTracks().forEach(t => t.stop());
+      audioCtx.close();
+      audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      fileLabel.textContent = `Recorded (${(audioBlob.size/1024).toFixed(1)} KB)`;
+      statusText.textContent = 'Recording complete';
+      recordBtn.classList.remove('active');
+      analyzeBtn.disabled = false;
+      drawStaticWave([]);   // clear
+    };
+
+    mediaRecorder.start(100);
+    recordBtn.classList.add('active');
+    statusText.textContent = 'Recording…';
+    startTimer();
+    drawLiveWave(analyserNode);
+    analyzeBtn.disabled = true;
+    fileLabel.textContent = '';
+    audioBlob = null;
+  } catch (err) {
+    showError(`Microphone error: ${err.message}`);
+  }
+});
+
+// ── File upload ───────────────────────────────────────────────────────────
+fileInput.addEventListener('change', () => {
+  const f = fileInput.files[0];
+  if (!f) return;
+  audioBlob = f;
+  fileLabel.textContent = f.name;
+  statusText.textContent = 'File loaded';
+  analyzeBtn.disabled = false;
+});
+
+// ── Analyze ───────────────────────────────────────────────────────────────
+analyzeBtn.addEventListener('click', async () => {
+  if (!audioBlob) { showError('No audio to analyze'); return; }
+
+  analyzeBtn.disabled = true;
+  spinner.classList.add('visible');
+  statusText.textContent = 'Analyzing…';
+  resultsEl.classList.remove('visible');
+
+  const form = new FormData();
+  const filename = (audioBlob instanceof File) ? audioBlob.name : 'recording.webm';
+  form.append('file', audioBlob, filename);
+
+  try {
+    const resp = await fetch('/api/analyze', { method: 'POST', body: form });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+    analysisData = await resp.json();
+    renderResults(analysisData);
+    statusText.textContent = 'Done';
+    drawStaticWave(analysisData.waveform_samples);
+  } catch (err) {
+    showError(`Analysis failed: ${err.message}`);
+    statusText.textContent = 'Error';
+  } finally {
+    analyzeBtn.disabled = false;
+    spinner.classList.remove('visible');
+  }
+});
+
+// ── Error toast ───────────────────────────────────────────────────────────
+function showError(msg) {
+  errorToast.textContent = msg;
+  errorToast.classList.add('show');
+  setTimeout(() => errorToast.classList.remove('show'), 4000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Render results ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+function renderResults(data) {
+  resultsEl.classList.add('visible');
+
+  renderSummaryBadges(data);
+  renderPiano(data);
+  renderTracks(data);
+  renderOvertones(data);
+}
+
+// ── Summary badges ────────────────────────────────────────────────────────
+function renderSummaryBadges(data) {
+  const el = document.getElementById('summaryBadges');
+  const confPct = Math.round(data.key_confidence * 100);
+  el.innerHTML = `
+    <span class="badge badge-key">Key: ${data.key}</span>
+    <span class="badge badge-tempo">Tempo: ${data.tempo_bpm} BPM</span>
+    <span class="badge badge-dur">Duration: ${data.duration_sec}s</span>
+    <span class="badge badge-conf">Key confidence: ${confPct}%</span>
+  `;
+}
+
+// ── Piano keyboard ────────────────────────────────────────────────────────
+function renderPiano(data) {
+  const svg     = document.getElementById('pianoSvg');
+  const octaves = 5;        // C2 – B6
+  const startOct= 2;
+  const ww      = 24;       // white key width
+  const wh      = 80;       // white key height
+  const bw      = 14;       // black key width
+  const bh      = 52;       // black key height
+
+  // Collect all active notes
+  const activeNotes = new Set();
+  const allTracks = data.tracks || {};
+  Object.entries(allTracks).forEach(([trackId, track]) => {
+    (track.notes || []).forEach(n => activeNotes.add(n.midi));
+  });
+
+  // Key root
+  const keyRoot = data.key ? data.key.split(' ')[0] : null;
+  const keyMode = data.key ? data.key.split(' ')[1] : 'major';
+  const rootIdx = keyRoot ? NOTE_NAMES.indexOf(keyRoot) : -1;
+  const scaleIntervals = keyMode === 'minor' ? MINOR_SCALE : MAJOR_SCALE;
+  const scaleNotes = new Set(scaleIntervals.map(i => (rootIdx + i) % 12));
+
+  // Build white key list
+  const whitePattern = [0,2,4,5,7,9,11]; // C,D,E,F,G,A,B
+  let whites = [];
+  for (let o = startOct; o < startOct + octaves; o++) {
+    whitePattern.forEach(pc => whites.push({ pc, octave: o, midi: (o+1)*12 + pc }));
+  }
+
+  const totalW = whites.length * ww;
+  svg.setAttribute('width', totalW);
+  svg.setAttribute('viewBox', `0 0 ${totalW} ${wh}`);
+
+  let html = '';
+
+  // White keys
+  whites.forEach((k, i) => {
+    const x   = i * ww;
+    const isActive = activeNotes.has(k.midi);
+    const isScale  = scaleNotes.has(k.pc);
+    const isRoot   = k.pc === rootIdx;
+    let fill = '#f0f0f0';
+    if (isRoot && k.pc === rootIdx)    fill = '#b3b8ff';
+    else if (isActive)                 fill = '#5b6af0';
+    else if (isScale)                  fill = '#d8daff';
+
+    html += `<rect x="${x}" y="0" width="${ww-1}" height="${wh}" rx="3" ry="3"
+               fill="${fill}" stroke="#555" stroke-width="0.5"/>`;
+    if (k.pc === 0) {
+      html += `<text x="${x + ww/2}" y="${wh - 6}" text-anchor="middle"
+                 font-size="8" fill="#888">C${k.octave}</text>`;
+    }
+  });
+
+  // Black key positions: C# D# F# G# A#
+  const blackOffsets = { 1: 0.65, 3: 1.65, 6: 3.65, 8: 4.65, 10: 5.65 };
+  for (let o = startOct; o < startOct + octaves; o++) {
+    const octaveStart = (o - startOct) * 7 * ww;
+    Object.entries(blackOffsets).forEach(([pc, offset]) => {
+      const midiVal = (o+1)*12 + parseInt(pc);
+      const x       = octaveStart + offset * ww;
+      const isActive = activeNotes.has(midiVal);
+      const isScale  = scaleNotes.has(parseInt(pc));
+      let fill = '#222';
+      if (isActive) fill = '#9b59f5';
+      else if (isScale) fill = '#3a3a6a';
+      html += `<rect x="${x}" y="0" width="${bw}" height="${bh}" rx="2" ry="2"
+                 fill="${fill}" stroke="#111" stroke-width="0.5"/>`;
+    });
+  }
+
+  // Legend
+  html += `
+    <g transform="translate(4, ${wh - 18})">
+      <rect x="0" y="0" width="10" height="10" rx="2" fill="#5b6af0"/>
+      <text x="13" y="9" font-size="9" fill="#888">Active note</text>
+      <rect x="80" y="0" width="10" height="10" rx="2" fill="#d8daff"/>
+      <text x="93" y="9" font-size="9" fill="#888">In scale</text>
+      <rect x="150" y="0" width="10" height="10" rx="2" fill="#b3b8ff"/>
+      <text x="163" y="9" font-size="9" fill="#888">Root</text>
+    </g>`;
+
+  svg.innerHTML = html;
+}
+
+// ── Track tabs & content ──────────────────────────────────────────────────
+const TRACK_ORDER = [
+  { id: 'full',   label: 'Full Mix', dotColor: '#5b6af0' },
+  { id: 'bass',   label: 'Bass',     dotColor: '#e74c3c' },
+  { id: 'mid',    label: 'Mid',      dotColor: '#2ecc71' },
+  { id: 'treble', label: 'Lead',     dotColor: '#9b59f5' },
+];
+
+function renderTracks(data) {
+  const tabsEl    = document.getElementById('trackTabs');
+  const contentEl = document.getElementById('trackContent');
+  const tracks    = data.tracks || {};
+
+  tabsEl.innerHTML = TRACK_ORDER.map(t => {
+    const has = tracks[t.id] && (tracks[t.id].notes.length > 0 || tracks[t.id].chords.length > 0);
+    return `<button class="tab ${t.id === activeTrack ? 'active' : ''}"
+               data-track="${t.id}">
+               <span class="tab-dot" style="background:${t.dotColor}"></span>
+               ${t.label}${!has ? ' <span style="opacity:.4;font-size:.75rem">(silent)</span>' : ''}
+             </button>`;
+  }).join('');
+
+  tabsEl.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTrack = btn.dataset.track;
+      tabsEl.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTrackContent(data, activeTrack, contentEl);
+    });
+  });
+
+  renderTrackContent(data, activeTrack, contentEl);
+}
+
+function renderTrackContent(data, trackId, container) {
+  const track = (data.tracks || {})[trackId];
+  if (!track) { container.innerHTML = '<p class="empty">No data.</p>'; return; }
+
+  const color = NOTE_COLORS[trackId] || '#5b6af0';
+  const trackClass = trackId === 'bass' ? 'bass' : trackId === 'mid' ? 'mid' : trackId === 'treble' ? 'treble' : '';
+
+  let html = '';
+
+  // Mini waveform
+  html += `<canvas class="track-wave" id="trackWave_${trackId}" height="60"></canvas>`;
+
+  // Track meta
+  const keyConf = Math.round((track.key_confidence || 0) * 100);
+  html += `<div class="summary-row" style="margin-bottom:1rem">`;
+  if (track.key)       html += `<span class="badge badge-key">Key: ${track.key} (${keyConf}%)</span>`;
+  if (track.tempo_bpm) html += `<span class="badge badge-tempo">${track.tempo_bpm} BPM</span>`;
+  html += `</div>`;
+
+  // ── Notes ──
+  html += `<h2 style="margin-bottom:.5rem">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="opacity:.6">
+      <rect x="1" y="4" width="8" height="6" rx="4" fill="currentColor"/>
+      <line x1="9" y1="4" x2="9" y2="1" stroke="currentColor" stroke-width="1.5"/>
+      <line x1="9" y1="1" x2="13" y2="2" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    Notes (${track.notes.length})
+  </h2>`;
+
+  if (track.notes.length === 0) {
+    html += `<p class="empty" style="text-align:left;padding:.5rem 0">No pitched notes detected in this band.</p>`;
+  } else {
+    // Note roll canvas (rendered after DOM insert)
+    html += `<div class="note-roll-wrap"><canvas id="noteRoll_${trackId}" height="160" style="min-width:400px;border-radius:6px;"></canvas></div>`;
+
+    // Note chips
+    html += `<div class="note-list" style="margin-top:.75rem">`;
+    // Deduplicate and sort by start_beat
+    const sorted = [...track.notes].sort((a,b) => a.start_beat - b.start_beat);
+    sorted.forEach(n => {
+      html += `<span class="note-chip ${trackClass}" title="Beat ${n.start_beat} | ${n.frequency}Hz | conf ${Math.round(n.confidence*100)}%">
+                 ${n.note}
+               </span>`;
+    });
+    html += `</div>`;
+  }
+
+  // ── Chords ──
+  html += `<h2 style="margin-top:1.2rem;margin-bottom:.5rem">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="opacity:.6">
+      <circle cx="3" cy="10" r="2" fill="currentColor"/>
+      <circle cx="7" cy="10" r="2" fill="currentColor"/>
+      <circle cx="11" cy="10" r="2" fill="currentColor"/>
+      <line x1="5" y1="10" x2="5" y2="3" stroke="currentColor" stroke-width="1.5"/>
+      <line x1="9" y1="10" x2="9" y2="1" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    Chords (${track.chords.length})
+  </h2>`;
+
+  if (track.chords.length === 0) {
+    html += `<p class="empty" style="text-align:left;padding:.5rem 0">No chords detected.</p>`;
+  } else {
+    html += `<div class="chord-list">`;
+    track.chords.forEach(c => {
+      const conf = Math.round(c.confidence * 100);
+      html += `<span class="chord-chip" title="Beat ${c.start_beat} | ${c.notes.join(',')} | ${conf}% confidence">
+                 ${c.chord} <span style="opacity:.5;font-size:.75em">${conf}%</span>
+               </span>`;
+    });
+    html += `</div>`;
+  }
+
+  // ── Scale / key notes for this band ──
+  if (track.key) {
+    const parts = track.key.split(' ');
+    const root  = parts[0];
+    const mode  = parts[1] || 'major';
+    const rootIdx = NOTE_NAMES.indexOf(root);
+    const intervals = mode === 'minor' ? MINOR_SCALE : MAJOR_SCALE;
+    html += `<div style="margin-top:1rem">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em">Scale notes</div>
+      <div class="scale-notes">`;
+    intervals.forEach(i => {
+      const pc = NOTE_NAMES[(rootIdx + i) % 12];
+      html += `<span class="scale-note ${i === 0 ? 'root' : ''}">${pc}</span>`;
+    });
+    html += `</div></div>`;
+  }
+
+  container.innerHTML = html;
+
+  // Draw track waveform
+  const wc = document.getElementById(`trackWave_${trackId}`);
+  if (wc && track.waveform_samples && track.waveform_samples.length > 0) {
+    wc.width  = wc.offsetWidth * window.devicePixelRatio;
+    wc.height = wc.offsetHeight * window.devicePixelRatio;
+    const ctx = wc.getContext('2d');
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    drawStaticWaveCtx(ctx, track.waveform_samples, wc.offsetWidth, wc.offsetHeight, color);
+  }
+
+  // Draw piano roll
+  if (track.notes.length > 0) {
+    drawPianoRoll(trackId, track, color);
+  }
+}
+
+function drawStaticWaveCtx(ctx, samples, W, H, color) {
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, W, H);
+  if (!samples || samples.length === 0) return;
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 1.5;
+  const mid  = H / 2;
+  const step = W / samples.length;
+  const maxA = Math.max(...samples.map(Math.abs)) || 1;
+  ctx.moveTo(0, mid);
+  for (let i = 0; i < samples.length; i++) {
+    ctx.lineTo(i * step, mid - (samples[i] / maxA) * mid * 0.85);
+  }
+  ctx.stroke();
+  // Center line
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth   = 1;
+  ctx.moveTo(0, mid); ctx.lineTo(W, mid);
+  ctx.stroke();
+}
+
+// ── Piano roll canvas ─────────────────────────────────────────────────────
+function drawPianoRoll(trackId, track, color) {
+  const canvas = document.getElementById(`noteRoll_${trackId}`);
+  if (!canvas) return;
+
+  const notes = track.notes;
+  if (!notes || notes.length === 0) return;
+
+  const W = Math.max(600, canvas.parentElement.offsetWidth || 600);
+  const H = 160;
+  canvas.width  = W * window.devicePixelRatio;
+  canvas.height = H * window.devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  // Background
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines every octave
+  const midiMin = Math.min(...notes.map(n => n.midi)) - 2;
+  const midiMax = Math.max(...notes.map(n => n.midi)) + 2;
+  const midiRange = Math.max(midiMax - midiMin, 12);
+
+  // Time range
+  const maxBeat = Math.max(...notes.map(n => n.start_beat + n.duration_beats)) + 0.5;
+  const minBeat = Math.min(...notes.map(n => n.start_beat));
+  const beatRange = Math.max(maxBeat - minBeat, 4);
+
+  const scaleX = (W - 40) / beatRange;
+  const scaleY = (H - 20) / midiRange;
+
+  // Horizontal grid (octave boundaries)
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth   = 1;
+  for (let m = Math.floor(midiMin/12)*12; m <= midiMax; m += 12) {
+    const y = H - 10 - (m - midiMin) * scaleY;
+    ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font      = '9px monospace';
+    ctx.fillText(`C${Math.floor(m/12)-1}`, 2, y + 3);
+  }
+
+  // Vertical beat grid
+  for (let b = Math.ceil(minBeat); b <= maxBeat; b++) {
+    const x = 40 + (b - minBeat) * scaleX;
+    ctx.strokeStyle = b % 4 === 0
+      ? 'rgba(255,255,255,0.12)'
+      : 'rgba(255,255,255,0.04)';
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - 20); ctx.stroke();
+  }
+
+  // Note blocks
+  notes.forEach(n => {
+    const x = 40 + (n.start_beat - minBeat) * scaleX;
+    const y = H - 10 - (n.midi - midiMin + 1) * scaleY;
+    const w = Math.max(3, n.duration_beats * scaleX - 1);
+    const h = Math.max(4, scaleY - 1);
+    const alpha = 0.5 + n.confidence * 0.5;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = color;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 2);
+    ctx.fill();
+    // Note label
+    if (w > 20) {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle   = '#fff';
+      ctx.font        = `bold ${Math.min(10, h - 2)}px monospace`;
+      ctx.fillText(n.note, x + 3, y + h - 2);
+    }
+  });
+  ctx.globalAlpha = 1;
+
+  // Time axis label
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '9px sans-serif';
+  ctx.fillText('beat →', W - 45, H - 4);
+}
+
+// ── Overtones ─────────────────────────────────────────────────────────────
+function renderOvertones(data) {
+  const fullTrack = (data.tracks || {}).full;
+  const overtones = (fullTrack && fullTrack.overtones) ? fullTrack.overtones : [];
+  const el        = document.getElementById('overtoneContent');
+
+  if (!overtones || overtones.length === 0) {
+    el.innerHTML = '<p class="empty">No prominent overtone series detected.</p>';
+    return;
+  }
+
+  let html = '';
+  overtones.forEach((ov, idx) => {
+    html += `<div class="overtone-block">
+      <h4>Fundamental #${idx+1}: <strong style="color:var(--text)">${ov.fundamental_note}</strong>
+          <span style="color:var(--muted);font-size:.8em"> — ${ov.fundamental_hz} Hz</span>
+      </h4>
+      <div class="harmonic-bars">`;
+
+    ov.harmonics.forEach(h => {
+      const pct = Math.round(h.relative_amplitude * 100);
+      const label = h.n === 1 ? 'fund.' : `×${h.n}`;
+      html += `<div class="harmonic-row">
+        <span class="h-label">${label}</span>
+        <span class="h-note">${h.note}</span>
+        <span class="h-hz">${h.hz} Hz</span>
+        <div class="harmonic-bar-bg">
+          <div class="harmonic-bar" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  el.innerHTML = html;
+}
+</script>
+</body>
+</html>
