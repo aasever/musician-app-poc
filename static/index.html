@@ -16,11 +16,9 @@
   --accent2:  #9b59f5;
   --green:    #2ecc71;
   --red:      #e74c3c;
-  --orange:   #e67e22;
   --yellow:   #f1c40f;
   --text:     #e8eaf6;
   --muted:    #7b8296;
-  --note-on:  #5b6af0;
   --bass-col: #e74c3c;
   --mid-col:  #2ecc71;
   --lead-col: #9b59f5;
@@ -40,7 +38,8 @@ header svg { flex-shrink: 0; }
 header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -.02em; }
 header p  { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
 
-main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem 2rem 3rem; max-width: 1200px; width: 100%; margin: 0 auto; }
+main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem;
+       padding: 1.5rem 2rem 3rem; max-width: 1200px; width: 100%; margin: 0 auto; }
 
 /* ── Recording panel ──────────────────────────────────────────────── */
 .record-panel {
@@ -48,20 +47,52 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.2rem;
+  display: flex; flex-direction: column; align-items: center; gap: 1.2rem;
 }
 
+/* Main waveform – doubles as progress bar when audio loaded */
+#waveCanvas {
+  width: 100%; height: 80px;
+  background: var(--card);
+  border-radius: 8px;
+  display: block;
+  transition: cursor .1s;
+}
+#waveCanvas.seekable { cursor: pointer; }
+
+/* ── Audio player ─────────────────────────────────────────────────── */
+#player {
+  display: none; width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .6rem 1rem;
+  align-items: center; gap: 1rem;
+}
+#player.visible { display: flex; }
+
+.play-btn {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--accent);
+  background: transparent; color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1rem; transition: background .12s, transform .1s;
+}
+.play-btn:hover { background: rgba(91,106,240,.15); transform: scale(1.05); }
+.play-btn.playing { background: var(--accent); color: #fff; }
+
+#timeDisplay {
+  font-size: .8rem; color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  min-width: 7rem; text-align: right;
+}
+
+/* ── Record button ────────────────────────────────────────────────── */
 .record-btn {
   width: 90px; height: 90px; border-radius: 50%;
-  border: 3px solid var(--red);
-  background: transparent;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  border: 3px solid var(--red); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: background .15s, transform .1s, box-shadow .3s;
-  position: relative;
   flex-shrink: 0;
 }
 .record-btn:hover { background: rgba(231,76,60,.1); transform: scale(1.05); }
@@ -70,7 +101,6 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
   box-shadow: 0 0 0 8px rgba(231,76,60,.25), 0 0 0 16px rgba(231,76,60,.1);
   animation: pulse 1.4s ease-in-out infinite;
 }
-.record-btn.active:hover { transform: scale(1.02); }
 @keyframes pulse {
   0%,100% { box-shadow: 0 0 0 8px rgba(231,76,60,.25), 0 0 0 16px rgba(231,76,60,.1); }
   50%      { box-shadow: 0 0 0 12px rgba(231,76,60,.35), 0 0 0 24px rgba(231,76,60,.07); }
@@ -85,30 +115,17 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
 .record-status span { color: var(--text); font-weight: 600; }
 #timer { font-variant-numeric: tabular-nums; }
 
-/* Waveform canvas */
-#waveCanvas {
-  width: 100%; height: 80px;
-  background: var(--card);
-  border-radius: 8px;
-  display: block;
-}
-
-/* Upload zone */
-.upload-row {
-  display: flex; align-items: center; gap: .75rem;
-  font-size: .85rem; color: var(--muted);
-}
+/* Upload */
+.upload-row { display: flex; align-items: center; gap: .75rem; font-size: .85rem; color: var(--muted); }
 .upload-row input[type=file] { display: none; }
 .upload-btn {
   padding: .4rem .9rem; border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--card); color: var(--text);
-  cursor: pointer; font-size: .85rem;
-  transition: border-color .15s;
+  border: 1px solid var(--border); background: var(--card); color: var(--text);
+  cursor: pointer; font-size: .85rem; transition: border-color .15s;
 }
 .upload-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-/* Analyze button */
+/* Analyze */
 #analyzeBtn {
   padding: .6rem 2rem; border-radius: 8px;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -118,41 +135,29 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
 #analyzeBtn:disabled { opacity: .4; cursor: not-allowed; }
 #analyzeBtn:not(:disabled):hover { opacity: .9; transform: translateY(-1px); }
 
-/* Loading spinner */
 .spinner {
-  width: 32px; height: 32px;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
-  display: none;
+  width: 32px; height: 32px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite; display: none;
 }
 .spinner.visible { display: block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Key badge ────────────────────────────────────────────────────── */
-.summary-row {
-  display: flex; flex-wrap: wrap; gap: .75rem; align-items: center;
-}
-.badge {
-  padding: .35rem .9rem; border-radius: 20px;
-  font-size: .85rem; font-weight: 600;
-  border: 1px solid;
-}
+/* ── Badges ───────────────────────────────────────────────────────── */
+.summary-row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.badge { padding: .35rem .9rem; border-radius: 20px; font-size: .85rem; font-weight: 600; border: 1px solid; }
 .badge-key   { background: rgba(91,106,240,.15); border-color: var(--accent); color: var(--accent); }
 .badge-tempo { background: rgba(155,89,245,.15); border-color: var(--accent2); color: var(--accent2); }
-.badge-dur   { background: rgba(46,204,113,.15); border-color: var(--green);  color: var(--green); }
+.badge-dur   { background: rgba(46,204,113,.15); border-color: var(--green); color: var(--green); }
 .badge-conf  { background: rgba(241,196,15,.15); border-color: var(--yellow); color: var(--yellow); }
 
 /* ── Piano keyboard ───────────────────────────────────────────────── */
 .piano-wrap {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1rem;
-  overflow-x: auto;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem; overflow-x: auto;
 }
-.piano-wrap h3 { font-size: .85rem; color: var(--muted); margin-bottom: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+.piano-wrap h3 { font-size: .85rem; color: var(--muted); margin-bottom: .8rem;
+                 text-transform: uppercase; letter-spacing: .06em; }
 #pianoSvg { display: block; min-width: 600px; }
 
 /* ── Tabs ─────────────────────────────────────────────────────────── */
@@ -161,96 +166,79 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
   padding: .5rem 1.1rem; border-radius: 8px 8px 0 0;
   border: 1px solid transparent; border-bottom: none;
   background: transparent; color: var(--muted);
-  cursor: pointer; font-size: .9rem;
-  transition: background .12s, color .12s;
+  cursor: pointer; font-size: .9rem; transition: background .12s, color .12s;
 }
 .tab:hover { background: var(--card); color: var(--text); }
 .tab.active { background: var(--card); border-color: var(--border); color: var(--text); font-weight: 600; }
 .tab-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 
 /* ── Section card ─────────────────────────────────────────────────── */
-.section-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 1.5rem;
-}
-.section-card h2 {
-  font-size: 1rem; font-weight: 700;
-  margin-bottom: 1rem; color: var(--text);
-  display: flex; align-items: center; gap: .5rem;
-}
+.section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; }
+.section-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text);
+                   display: flex; align-items: center; gap: .5rem; }
 
 /* ── Track waveform ──────────────────────────────────────────────── */
 .track-wave { height: 60px; width: 100%; background: var(--bg); border-radius: 6px; display: block; margin-bottom: 1rem; }
 
-/* ── Note roll ────────────────────────────────────────────────────── */
-.note-roll-wrap { overflow-x: auto; }
-#noteRollCanvas { display: block; min-width: 400px; border-radius: 6px; }
+/* ── Piano roll ───────────────────────────────────────────────────── */
+.note-roll-wrap { overflow-x: auto; position: relative; }
 
-/* ── Note list ────────────────────────────────────────────────────── */
+/* ── Note chips ───────────────────────────────────────────────────── */
 .note-list {
   display: flex; flex-wrap: wrap; gap: .5rem;
-  max-height: 200px; overflow-y: auto;
-  padding: .25rem;
+  max-height: 200px; overflow-y: auto; padding: .25rem;
 }
 .note-chip {
   padding: .25rem .6rem; border-radius: 6px;
   font-size: .8rem; font-weight: 700; font-family: monospace;
-  background: rgba(91,106,240,.2); border: 1px solid var(--accent);
-  color: var(--accent); white-space: nowrap;
+  background: rgba(91,106,240,.2); border: 1px solid var(--accent); color: var(--accent);
+  white-space: nowrap; transition: transform .08s, box-shadow .08s, background .08s;
 }
-.note-chip.bass  { background: rgba(231,76,60,.2); border-color: var(--bass-col); color: var(--bass-col); }
-.note-chip.mid   { background: rgba(46,204,113,.2); border-color: var(--mid-col);  color: var(--mid-col); }
-.note-chip.treble{ background: rgba(155,89,245,.2); border-color: var(--lead-col); color: var(--lead-col); }
+.note-chip.bass   { background: rgba(231,76,60,.2);  border-color: var(--bass-col); color: var(--bass-col); }
+.note-chip.mid    { background: rgba(46,204,113,.2); border-color: var(--mid-col);  color: var(--mid-col); }
+.note-chip.treble { background: rgba(155,89,245,.2); border-color: var(--lead-col); color: var(--lead-col); }
+.note-chip.playing {
+  transform: scale(1.12);
+  box-shadow: 0 0 10px 2px currentColor;
+  background: rgba(255,255,255,.15) !important;
+  color: #fff !important;
+  border-color: #fff !important;
+}
 
-/* ── Chord list ───────────────────────────────────────────────────── */
-.chord-list {
-  display: flex; flex-wrap: wrap; gap: .5rem;
-  max-height: 160px; overflow-y: auto;
-}
+/* ── Chord chips ──────────────────────────────────────────────────── */
+.chord-list { display: flex; flex-wrap: wrap; gap: .5rem; max-height: 160px; overflow-y: auto; }
 .chord-chip {
-  padding: .3rem .7rem; border-radius: 8px;
-  font-size: .85rem; font-weight: 700;
-  background: rgba(241,196,15,.12); border: 1px solid var(--yellow);
-  color: var(--yellow);
+  padding: .3rem .7rem; border-radius: 8px; font-size: .85rem; font-weight: 700;
+  background: rgba(241,196,15,.12); border: 1px solid var(--yellow); color: var(--yellow);
+  transition: transform .08s, box-shadow .08s, background .08s;
+}
+.chord-chip.playing {
+  transform: scale(1.08);
+  box-shadow: 0 0 12px 2px var(--yellow);
+  background: rgba(241,196,15,.35) !important;
 }
 
 /* ── Overtone table ───────────────────────────────────────────────── */
 .overtone-block { margin-bottom: 1rem; }
 .overtone-block h4 { font-size: .85rem; color: var(--muted); margin-bottom: .4rem; }
 .harmonic-bars { display: flex; flex-direction: column; gap: 4px; }
-.harmonic-row {
-  display: grid;
-  grid-template-columns: 3rem 5rem 5rem 1fr;
-  align-items: center; gap: .5rem;
-  font-size: .78rem;
-}
+.harmonic-row { display: grid; grid-template-columns: 3rem 5rem 5rem 1fr;
+                align-items: center; gap: .5rem; font-size: .78rem; }
 .harmonic-row .h-label { color: var(--muted); text-align: right; }
 .harmonic-row .h-note  { font-weight: 700; font-family: monospace; }
 .harmonic-row .h-hz    { color: var(--muted); font-family: monospace; }
 .harmonic-bar-bg { background: var(--bg); border-radius: 4px; height: 8px; overflow: hidden; }
-.harmonic-bar    { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .4s; }
+.harmonic-bar { height: 100%; border-radius: 4px;
+                background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .4s; }
 
-/* ── Key signature panel ──────────────────────────────────────────── */
-.key-panel {
-  display: flex; align-items: flex-start; gap: 2rem;
-  flex-wrap: wrap;
-}
-.key-big { font-size: 3rem; font-weight: 900; line-height: 1; }
-.key-sub { font-size: .9rem; color: var(--muted); margin-top: .3rem; }
+/* ── Scale notes ──────────────────────────────────────────────────── */
 .scale-notes { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .6rem; }
-.scale-note {
-  padding: .25rem .55rem; border-radius: 6px;
-  font-size: .8rem; font-weight: 700; font-family: monospace;
-  background: var(--card); border: 1px solid var(--border);
-}
+.scale-note { padding: .25rem .55rem; border-radius: 6px; font-size: .8rem; font-weight: 700;
+              font-family: monospace; background: var(--card); border: 1px solid var(--border); }
 .scale-note.root { background: rgba(91,106,240,.25); border-color: var(--accent); color: var(--accent); }
 
-/* ── Empty state ──────────────────────────────────────────────────── */
+/* ── Empty / error ────────────────────────────────────────────────── */
 .empty { color: var(--muted); font-size: .9rem; text-align: center; padding: 2rem; }
-
-/* ── Error toast ──────────────────────────────────────────────────── */
 #errorToast {
   position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
   background: #c0392b; color: #fff; padding: .7rem 1.4rem; border-radius: 8px;
@@ -259,14 +247,12 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
 }
 #errorToast.show { opacity: 1; }
 
-/* ── Results section (hidden until analysis) ──────────────────────── */
+/* ── Results ──────────────────────────────────────────────────────── */
 #results { display: none; }
 #results.visible { display: flex; flex-direction: column; gap: 1.5rem; }
 
-/* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   main { padding: 1rem; }
-  .key-big { font-size: 2rem; }
   .harmonic-row { grid-template-columns: 2.5rem 4rem 4rem 1fr; }
 }
 </style>
@@ -276,7 +262,8 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
 <header>
   <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
     <circle cx="18" cy="18" r="18" fill="#1c2130"/>
-    <path d="M10 24 L14 12 L18 20 L22 10 L26 24" stroke="#5b6af0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M10 24 L14 12 L18 20 L22 10 L26 24" stroke="#5b6af0" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     <circle cx="26" cy="24" r="2.5" fill="#9b59f5"/>
     <circle cx="10" cy="24" r="2.5" fill="#5b6af0"/>
   </svg>
@@ -290,19 +277,24 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
 
   <!-- ── Recording panel ── -->
   <div class="record-panel">
+
+    <!-- Waveform / progress bar (click to seek when audio loaded) -->
     <canvas id="waveCanvas" height="80"></canvas>
 
+    <!-- Audio player controls (hidden until audio available) -->
+    <div id="player">
+      <button class="play-btn" id="playBtn" title="Play / Pause">&#9654;</button>
+      <span id="timeDisplay">0:00 / 0:00</span>
+    </div>
+
+    <!-- Record button -->
     <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:center;">
-      <button class="record-btn" id="recordBtn" title="Record">
+      <button class="record-btn" id="recordBtn" title="Record / Stop">
         <div class="record-inner"></div>
       </button>
       <div>
-        <div class="record-status">
-          Status: <span id="statusText">Ready</span>
-        </div>
-        <div class="record-status" style="margin-top:.3rem">
-          Time: <span id="timer">0:00</span>
-        </div>
+        <div class="record-status">Status: <span id="statusText">Ready</span></div>
+        <div class="record-status" style="margin-top:.3rem">Time: <span id="timer">0:00</span></div>
       </div>
     </div>
 
@@ -322,59 +314,70 @@ main { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5
   <!-- ── Results ── -->
   <div id="results">
 
-    <!-- Summary badges -->
     <div class="summary-row" id="summaryBadges"></div>
 
-    <!-- Piano keyboard -->
     <div class="piano-wrap">
       <h3>Key &amp; Active Notes</h3>
       <svg id="pianoSvg" height="90"></svg>
     </div>
 
-    <!-- Tabs for tracks -->
     <div class="section-card">
       <div class="tabs" id="trackTabs"></div>
       <div id="trackContent"></div>
     </div>
 
-    <!-- Overtone analysis -->
     <div class="section-card" id="overtoneSection">
       <h2>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="opacity:.7">
-          <path d="M1 12 Q4 4 8 8 Q12 12 15 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          <path d="M1 12 Q4 4 8 8 Q12 12 15 4" stroke="currentColor" stroke-width="1.6"
+                fill="none" stroke-linecap="round"/>
         </svg>
         Overtone / Harmonic Series
       </h2>
       <div id="overtoneContent"></div>
     </div>
 
-  </div><!-- /results -->
+  </div>
 
 </main>
 
 <div id="errorToast"></div>
 
 <script>
-// ── State ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Constants & state ──────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+const NOTE_NAMES  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const MAJOR_SCALE = [0,2,4,5,7,9,11];
+const MINOR_SCALE = [0,2,3,5,7,8,10];
+const NOTE_COLORS = { full:'#5b6af0', bass:'#e74c3c', mid:'#2ecc71', treble:'#9b59f5' };
+const DPR         = window.devicePixelRatio || 1;
+
+// Recording
 let mediaRecorder = null;
 let audioChunks   = [];
 let audioBlob     = null;
 let timerInterval = null;
 let startTime     = 0;
 let analyserNode  = null;
-let animFrame     = null;
+let liveAnimFrame = null;
+
+// Analysis result
 let analysisData  = null;
 let activeTrack   = 'full';
 
-const NOTE_NAMES    = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const MAJOR_SCALE   = [0,2,4,5,7,9,11];
-const MINOR_SCALE   = [0,2,3,5,7,8,10];
-const NOTE_COLORS   = {
-  full:   '#5b6af0',
-  bass:   '#e74c3c',
-  mid:    '#2ecc71',
-  treble: '#9b59f5',
-};
+// Playback
+let audioEl         = null;  // HTMLAudioElement
+let audioObjectUrl  = null;  // revokeObjectURL when replaced
+let playbackRAF     = null;
+let isPlaying       = false;
+
+// Per-frame drawing caches
+let mainWaveSamples = [];    // for waveCanvas playhead overlay
+let rollCache       = {};    // trackId → { offscreen, params }
+let trackWaveCache  = {};    // trackId → { offscreen, W, H }
+let prevActiveMidis = new Set();
 
 // ── DOM refs ──────────────────────────────────────────────────────────────
 const recordBtn  = document.getElementById('recordBtn');
@@ -386,39 +389,99 @@ const fileInput  = document.getElementById('fileInput');
 const fileLabel  = document.getElementById('fileLabel');
 const waveCanvas = document.getElementById('waveCanvas');
 const waveCtx    = waveCanvas.getContext('2d');
+const player     = document.getElementById('player');
+const playBtn    = document.getElementById('playBtn');
+const timeDisp   = document.getElementById('timeDisplay');
 const resultsEl  = document.getElementById('results');
 const errorToast = document.getElementById('errorToast');
 
-// ── Resize canvas ─────────────────────────────────────────────────────────
-function resizeCanvas() {
-  waveCanvas.width  = waveCanvas.offsetWidth  * window.devicePixelRatio;
-  waveCanvas.height = waveCanvas.offsetHeight * window.devicePixelRatio;
-  waveCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Canvas helpers ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ── Timer ─────────────────────────────────────────────────────────────────
-function startTimer() {
-  startTime = Date.now();
-  timerInterval = setInterval(() => {
-    const s = Math.floor((Date.now() - startTime) / 1000);
-    timerEl.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
-  }, 500);
+function resizeMainCanvas() {
+  waveCanvas.width  = waveCanvas.offsetWidth  * DPR;
+  waveCanvas.height = waveCanvas.offsetHeight * DPR;
+  waveCtx.scale(DPR, DPR);
 }
-function stopTimer() {
-  clearInterval(timerInterval);
+window.addEventListener('resize', () => {
+  resizeMainCanvas();
+  if (mainWaveSamples.length) drawMainWave(mainWaveSamples);
+});
+resizeMainCanvas();
+
+function drawStaticWaveToCtx(ctx, samples, W, H, color, alpha = 1) {
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, W, H);
+  if (!samples || !samples.length) return;
+  const mid  = H / 2;
+  const step = W / samples.length;
+  const maxA = Math.max(...samples.map(Math.abs)) || 1;
+  // Fill silhouette for depth
+  ctx.beginPath();
+  ctx.moveTo(0, mid);
+  for (let i = 0; i < samples.length; i++)
+    ctx.lineTo(i * step, mid - (samples[i] / maxA) * mid * 0.82);
+  ctx.lineTo(W, mid);
+  ctx.closePath();
+  ctx.globalAlpha = 0.15 * alpha;
+  ctx.fillStyle = color;
+  ctx.fill();
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(0, mid);
+  for (let i = 0; i < samples.length; i++)
+    ctx.lineTo(i * step, mid - (samples[i] / maxA) * mid * 0.82);
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+  // Center line
+  ctx.beginPath();
+  ctx.moveTo(0, mid); ctx.lineTo(W, mid);
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth   = 1;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 }
 
-// ── Live waveform ─────────────────────────────────────────────────────────
+// ── Main waveCanvas ───────────────────────────────────────────────────────
+
+function drawMainWave(samples, color = '#5b6af0') {
+  mainWaveSamples = samples || [];
+  const W = waveCanvas.offsetWidth, H = waveCanvas.offsetHeight;
+  drawStaticWaveToCtx(waveCtx, mainWaveSamples, W, H, color);
+}
+
+function drawMainWaveWithPlayhead(currentTime) {
+  const W = waveCanvas.offsetWidth, H = waveCanvas.offsetHeight;
+  drawStaticWaveToCtx(waveCtx, mainWaveSamples, W, H, '#5b6af0');
+  if (!audioEl) return;
+  const dur = audioEl.duration || (analysisData?.duration_sec) || 1;
+  const x   = (currentTime / dur) * W;
+  waveCtx.save();
+  waveCtx.strokeStyle = 'rgba(255,255,255,0.85)';
+  waveCtx.lineWidth   = 2;
+  waveCtx.shadowColor = '#fff';
+  waveCtx.shadowBlur  = 6;
+  waveCtx.beginPath();
+  waveCtx.moveTo(x, 0); waveCtx.lineTo(x, H);
+  waveCtx.stroke();
+  // Dim already-played region
+  waveCtx.fillStyle = 'rgba(0,0,0,0.3)';
+  waveCtx.fillRect(0, 0, x, H);
+  waveCtx.restore();
+}
+
+// ── Live waveform while recording ─────────────────────────────────────────
+
 function drawLiveWave(analyser) {
-  const buf  = new Uint8Array(analyser.frequencyBinCount);
-  const W    = waveCanvas.offsetWidth;
-  const H    = waveCanvas.offsetHeight;
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  const W = waveCanvas.offsetWidth, H = waveCanvas.offsetHeight;
   function loop() {
-    animFrame = requestAnimationFrame(loop);
+    liveAnimFrame = requestAnimationFrame(loop);
     analyser.getByteTimeDomainData(buf);
-    waveCtx.clearRect(0, 0, W, H);
     waveCtx.fillStyle = '#161923';
     waveCtx.fillRect(0, 0, W, H);
     waveCtx.beginPath();
@@ -427,7 +490,7 @@ function drawLiveWave(analyser) {
     const step = W / buf.length;
     for (let i = 0; i < buf.length; i++) {
       const y = (buf[i] / 128) * (H / 2);
-      i === 0 ? waveCtx.moveTo(i * step, y) : waveCtx.lineTo(i * step, y);
+      i === 0 ? waveCtx.moveTo(0, y) : waveCtx.lineTo(i * step, y);
     }
     waveCtx.stroke();
   }
@@ -435,31 +498,318 @@ function drawLiveWave(analyser) {
 }
 
 function stopLiveWave() {
-  cancelAnimationFrame(animFrame);
-  animFrame = null;
+  cancelAnimationFrame(liveAnimFrame);
+  liveAnimFrame = null;
 }
 
-function drawStaticWave(samples, color = '#5b6af0') {
-  const W = waveCanvas.offsetWidth;
-  const H = waveCanvas.offsetHeight;
-  waveCtx.clearRect(0, 0, W, H);
-  waveCtx.fillStyle = '#161923';
-  waveCtx.fillRect(0, 0, W, H);
-  if (!samples || samples.length === 0) return;
-  waveCtx.beginPath();
-  waveCtx.strokeStyle = color;
-  waveCtx.lineWidth = 1.5;
-  const mid  = H / 2;
-  const step = W / samples.length;
-  const maxA = Math.max(...samples.map(Math.abs)) || 1;
-  for (let i = 0; i < samples.length; i++) {
-    const y = mid - (samples[i] / maxA) * (mid * 0.85);
-    i === 0 ? waveCtx.moveTo(0, y) : waveCtx.lineTo(i * step, y);
+// ── Format time ───────────────────────────────────────────────────────────
+function fmtTime(s) {
+  if (!isFinite(s)) return '0:00';
+  s = Math.floor(s);
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+// ── Recording timer ───────────────────────────────────────────────────────
+function startTimer() {
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    timerEl.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  }, 500);
+}
+function stopTimer() { clearInterval(timerInterval); }
+
+// ── Error toast ───────────────────────────────────────────────────────────
+function showError(msg) {
+  errorToast.textContent = msg;
+  errorToast.classList.add('show');
+  setTimeout(() => errorToast.classList.remove('show'), 4000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Audio player ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function setupAudioPlayer(blob) {
+  // Tear down previous
+  if (audioEl) {
+    audioEl.pause();
+    audioEl.src = '';
   }
-  waveCtx.stroke();
+  if (audioObjectUrl) URL.revokeObjectURL(audioObjectUrl);
+
+  audioObjectUrl = URL.createObjectURL(blob);
+  audioEl = new Audio(audioObjectUrl);
+
+  audioEl.addEventListener('play',  onAudioPlay);
+  audioEl.addEventListener('pause', onAudioPause);
+  audioEl.addEventListener('ended', onAudioEnded);
+
+  player.classList.add('visible');
+  waveCanvas.classList.add('seekable');
+  timeDisp.textContent = `0:00 / ${fmtTime(blob.size / 22050 / 2)}`; // rough estimate
+
+  // Better duration once metadata loads
+  audioEl.addEventListener('loadedmetadata', () => {
+    timeDisp.textContent = `0:00 / ${fmtTime(audioEl.duration)}`;
+  });
 }
 
-// ── Recording ─────────────────────────────────────────────────────────────
+function onAudioPlay() {
+  isPlaying = true;
+  playBtn.classList.add('playing');
+  playBtn.innerHTML = '&#9646;&#9646;';
+  startSyncLoop();
+}
+
+function onAudioPause() {
+  isPlaying = false;
+  playBtn.classList.remove('playing');
+  playBtn.innerHTML = '&#9654;';
+  stopSyncLoop();
+  // Freeze playhead at current position
+  if (analysisData) drawMainWaveWithPlayhead(audioEl.currentTime);
+}
+
+function onAudioEnded() {
+  isPlaying = false;
+  playBtn.classList.remove('playing');
+  playBtn.innerHTML = '&#9654;';
+  stopSyncLoop();
+  drawMainWave(mainWaveSamples);
+  clearPianoKeys();
+  clearChips();
+}
+
+playBtn.addEventListener('click', () => {
+  if (!audioEl) return;
+  audioEl.paused ? audioEl.play() : audioEl.pause();
+});
+
+// Click waveCanvas to seek
+waveCanvas.addEventListener('click', e => {
+  if (!audioEl || !waveCanvas.classList.contains('seekable')) return;
+  const rect = waveCanvas.getBoundingClientRect();
+  const frac = (e.clientX - rect.left) / rect.width;
+  const dur  = audioEl.duration;
+  if (isFinite(dur)) audioEl.currentTime = frac * dur;
+  if (audioEl.paused) drawMainWaveWithPlayhead(audioEl.currentTime);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Playback sync loop ─────────────────────────────────────────════════════
+// ═══════════════════════════════════════════════════════════════════════════
+
+function startSyncLoop() {
+  stopSyncLoop();
+  function loop() {
+    if (!audioEl) return;
+    syncFrame(audioEl.currentTime);
+    if (isPlaying) playbackRAF = requestAnimationFrame(loop);
+  }
+  playbackRAF = requestAnimationFrame(loop);
+}
+
+function stopSyncLoop() {
+  cancelAnimationFrame(playbackRAF);
+  playbackRAF = null;
+}
+
+function syncFrame(t) {
+  // Update time display
+  const dur = audioEl?.duration || analysisData?.duration_sec || 1;
+  timeDisp.textContent = `${fmtTime(t)} / ${fmtTime(dur)}`;
+
+  // Playhead on main waveform
+  drawMainWaveWithPlayhead(t);
+
+  if (!analysisData) return;
+
+  const bpm         = analysisData.tempo_bpm || 120;
+  const currentBeat = (t * bpm) / 60;
+
+  // Piano roll playhead
+  redrawPianoRoll(activeTrack, currentBeat);
+
+  // Track waveform playhead
+  redrawTrackWave(activeTrack, t, dur);
+
+  // Note chip highlighting
+  syncNoteChips(activeTrack, t);
+
+  // Chord chip highlighting
+  syncChordChips(activeTrack, t);
+
+  // Piano SVG key flashing
+  syncPianoKeys(t);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Per-frame: piano roll ──────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function redrawPianoRoll(trackId, currentBeat) {
+  const cache = rollCache[trackId];
+  if (!cache) return;
+  const canvas = document.getElementById(`noteRoll_${trackId}`);
+  if (!canvas) return;
+
+  const { offscreen, p } = cache;
+  const ctx = canvas.getContext('2d');
+
+  // Blit the pre-drawn static roll
+  ctx.clearRect(0, 0, p.W * DPR, p.H * DPR);
+  ctx.drawImage(offscreen, 0, 0);
+
+  // Glow active notes
+  ctx.save();
+  p.notes.forEach(n => {
+    if (currentBeat >= n.start_beat && currentBeat <= n.start_beat + n.duration_beats) {
+      const x = 40 + (n.start_beat - p.minBeat) * p.scaleX;
+      const y = p.H - 10 - (n.midi - p.midiMin + 1) * p.scaleY;
+      const w = Math.max(3, n.duration_beats * p.scaleX - 1);
+      const h = Math.max(4, p.scaleY - 1);
+      ctx.shadowColor = '#fff';
+      ctx.shadowBlur  = 14;
+      ctx.fillStyle   = '#fff';
+      ctx.globalAlpha = 0.92;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 2);
+      ctx.fill();
+    }
+  });
+  ctx.restore();
+
+  // Playhead line
+  const xHead = 40 + (currentBeat - p.minBeat) * p.scaleX;
+  if (xHead >= 40 && xHead <= p.W) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth   = 2;
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur  = 8;
+    ctx.beginPath();
+    ctx.moveTo(xHead, 0); ctx.lineTo(xHead, p.H - 20);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Per-frame: track waveform playhead ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function redrawTrackWave(trackId, currentTime, duration) {
+  const cache  = trackWaveCache[trackId];
+  const canvas = document.getElementById(`trackWave_${trackId}`);
+  if (!cache || !canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, cache.W * DPR, cache.H * DPR);
+  ctx.drawImage(cache.offscreen, 0, 0);
+
+  const x = (currentTime / duration) * cache.W;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth   = 2;
+  ctx.shadowColor = '#fff';
+  ctx.shadowBlur  = 6;
+  ctx.beginPath();
+  ctx.moveTo(x, 0); ctx.lineTo(x, cache.H);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, 0, x, cache.H);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Per-frame: note chip highlighting ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function syncNoteChips(trackId, currentTime) {
+  const chips = document.querySelectorAll(`.note-chip[data-start]`);
+  chips.forEach(chip => {
+    const s = parseFloat(chip.dataset.start);
+    const e = parseFloat(chip.dataset.end);
+    chip.classList.toggle('playing', currentTime >= s && currentTime < e);
+  });
+}
+
+function syncChordChips(trackId, currentTime) {
+  const chips = document.querySelectorAll(`.chord-chip[data-start]`);
+  chips.forEach(chip => {
+    const s = parseFloat(chip.dataset.start);
+    const e = parseFloat(chip.dataset.end);
+    chip.classList.toggle('playing', currentTime >= s && currentTime < e);
+  });
+}
+
+function clearChips() {
+  document.querySelectorAll('.note-chip.playing, .chord-chip.playing')
+          .forEach(el => el.classList.remove('playing'));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Per-frame: piano key highlighting ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function syncPianoKeys(currentTime) {
+  // Collect all active MIDIs across all tracks at this time
+  const activeMidis = new Set();
+  if (analysisData) {
+    Object.values(analysisData.tracks).forEach(track => {
+      (track.notes || []).forEach(n => {
+        if (currentTime >= n.start_sec && currentTime < n.end_sec)
+          activeMidis.add(n.midi);
+      });
+    });
+  }
+
+  // Reset previous
+  prevActiveMidis.forEach(midi => {
+    const el = document.getElementById(`pk-${midi}`);
+    if (el) el.setAttribute('fill', el.dataset.baseFill);
+  });
+
+  // Set new
+  activeMidis.forEach(midi => {
+    const el = document.getElementById(`pk-${midi}`);
+    if (el) el.setAttribute('fill', el.dataset.isBlack === '1' ? '#9b59f5' : '#5b6af0');
+  });
+
+  prevActiveMidis = activeMidis;
+}
+
+function clearPianoKeys() {
+  prevActiveMidis.forEach(midi => {
+    const el = document.getElementById(`pk-${midi}`);
+    if (el) el.setAttribute('fill', el.dataset.baseFill);
+  });
+  prevActiveMidis = new Set();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Pre-process analysis data with timing ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+function enrichWithTiming(data) {
+  const bpm = data.tempo_bpm || 120;
+  Object.values(data.tracks).forEach(track => {
+    (track.notes  || []).forEach(n => {
+      n.start_sec = (n.start_beat * 60) / bpm;
+      n.end_sec   = ((n.start_beat + n.duration_beats) * 60) / bpm;
+    });
+    (track.chords || []).forEach(c => {
+      c.start_sec = (c.start_beat * 60) / bpm;
+      c.end_sec   = ((c.start_beat + c.duration_beats) * 60) / bpm;
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Recording ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
 recordBtn.addEventListener('click', async () => {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
     mediaRecorder.stop();
@@ -474,8 +824,8 @@ recordBtn.addEventListener('click', async () => {
     analyserNode.fftSize = 2048;
     source.connect(analyserNode);
 
-    mediaRecorder  = new MediaRecorder(stream);
-    audioChunks    = [];
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks   = [];
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
 
     mediaRecorder.onstop = () => {
@@ -488,7 +838,8 @@ recordBtn.addEventListener('click', async () => {
       statusText.textContent = 'Recording complete';
       recordBtn.classList.remove('active');
       analyzeBtn.disabled = false;
-      drawStaticWave([]);   // clear
+      drawMainWave([]);
+      setupAudioPlayer(audioBlob);
     };
 
     mediaRecorder.start(100);
@@ -512,6 +863,8 @@ fileInput.addEventListener('change', () => {
   fileLabel.textContent = f.name;
   statusText.textContent = 'File loaded';
   analyzeBtn.disabled = false;
+  drawMainWave([]);
+  setupAudioPlayer(audioBlob);
 });
 
 // ── Analyze ───────────────────────────────────────────────────────────────
@@ -534,9 +887,12 @@ analyzeBtn.addEventListener('click', async () => {
       throw new Error(err.detail || `HTTP ${resp.status}`);
     }
     analysisData = await resp.json();
+    enrichWithTiming(analysisData);
+    // Refresh audio player with the same blob (in case it was replaced)
+    setupAudioPlayer(audioBlob);
     renderResults(analysisData);
+    drawMainWave(analysisData.waveform_samples);
     statusText.textContent = 'Done';
-    drawStaticWave(analysisData.waveform_samples);
   } catch (err) {
     showError(`Analysis failed: ${err.message}`);
     statusText.textContent = 'Error';
@@ -546,19 +902,14 @@ analyzeBtn.addEventListener('click', async () => {
   }
 });
 
-// ── Error toast ───────────────────────────────────────────────────────────
-function showError(msg) {
-  errorToast.textContent = msg;
-  errorToast.classList.add('show');
-  setTimeout(() => errorToast.classList.remove('show'), 4000);
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // ── Render results ─────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
-function renderResults(data) {
-  resultsEl.classList.add('visible');
 
+function renderResults(data) {
+  rollCache      = {};
+  trackWaveCache = {};
+  resultsEl.classList.add('visible');
   renderSummaryBadges(data);
   renderPiano(data);
   renderTracks(data);
@@ -568,45 +919,36 @@ function renderResults(data) {
 // ── Summary badges ────────────────────────────────────────────────────────
 function renderSummaryBadges(data) {
   const el = document.getElementById('summaryBadges');
-  const confPct = Math.round(data.key_confidence * 100);
+  const pct = Math.round(data.key_confidence * 100);
   el.innerHTML = `
     <span class="badge badge-key">Key: ${data.key}</span>
     <span class="badge badge-tempo">Tempo: ${data.tempo_bpm} BPM</span>
     <span class="badge badge-dur">Duration: ${data.duration_sec}s</span>
-    <span class="badge badge-conf">Key confidence: ${confPct}%</span>
-  `;
+    <span class="badge badge-conf">Key confidence: ${pct}%</span>`;
 }
 
 // ── Piano keyboard ────────────────────────────────────────────────────────
 function renderPiano(data) {
-  const svg     = document.getElementById('pianoSvg');
-  const octaves = 5;        // C2 – B6
-  const startOct= 2;
-  const ww      = 24;       // white key width
-  const wh      = 80;       // white key height
-  const bw      = 14;       // black key width
-  const bh      = 52;       // black key height
+  const svg      = document.getElementById('pianoSvg');
+  const octaves  = 5;
+  const startOct = 2;
+  const ww = 24, wh = 80, bw = 14, bh = 52;
 
-  // Collect all active notes
-  const activeNotes = new Set();
-  const allTracks = data.tracks || {};
-  Object.entries(allTracks).forEach(([trackId, track]) => {
-    (track.notes || []).forEach(n => activeNotes.add(n.midi));
-  });
+  const allNotes = new Set();
+  Object.values(data.tracks || {}).forEach(t =>
+    (t.notes || []).forEach(n => allNotes.add(n.midi)));
 
-  // Key root
-  const keyRoot = data.key ? data.key.split(' ')[0] : null;
-  const keyMode = data.key ? data.key.split(' ')[1] : 'major';
-  const rootIdx = keyRoot ? NOTE_NAMES.indexOf(keyRoot) : -1;
-  const scaleIntervals = keyMode === 'minor' ? MINOR_SCALE : MAJOR_SCALE;
-  const scaleNotes = new Set(scaleIntervals.map(i => (rootIdx + i) % 12));
+  const keyRoot = (data.key || '').split(' ')[0];
+  const keyMode = (data.key || '').split(' ')[1] || 'major';
+  const rootIdx = NOTE_NAMES.indexOf(keyRoot);
+  const scaleSet = new Set(
+    (keyMode === 'minor' ? MINOR_SCALE : MAJOR_SCALE).map(i => (rootIdx + i) % 12)
+  );
 
-  // Build white key list
-  const whitePattern = [0,2,4,5,7,9,11]; // C,D,E,F,G,A,B
-  let whites = [];
-  for (let o = startOct; o < startOct + octaves; o++) {
+  const whitePattern = [0,2,4,5,7,9,11];
+  const whites = [];
+  for (let o = startOct; o < startOct + octaves; o++)
     whitePattern.forEach(pc => whites.push({ pc, octave: o, midi: (o+1)*12 + pc }));
-  }
 
   const totalW = whites.length * ww;
   svg.setAttribute('width', totalW);
@@ -614,62 +956,49 @@ function renderPiano(data) {
 
   let html = '';
 
-  // White keys
   whites.forEach((k, i) => {
-    const x   = i * ww;
-    const isActive = activeNotes.has(k.midi);
-    const isScale  = scaleNotes.has(k.pc);
-    const isRoot   = k.pc === rootIdx;
-    let fill = '#f0f0f0';
-    if (isRoot && k.pc === rootIdx)    fill = '#b3b8ff';
-    else if (isActive)                 fill = '#5b6af0';
-    else if (isScale)                  fill = '#d8daff';
-
-    html += `<rect x="${x}" y="0" width="${ww-1}" height="${wh}" rx="3" ry="3"
-               fill="${fill}" stroke="#555" stroke-width="0.5"/>`;
-    if (k.pc === 0) {
-      html += `<text x="${x + ww/2}" y="${wh - 6}" text-anchor="middle"
-                 font-size="8" fill="#888">C${k.octave}</text>`;
-    }
+    const x       = i * ww;
+    const isScale = scaleSet.has(k.pc);
+    const isRoot  = k.pc === rootIdx;
+    let base = isRoot ? '#b3b8ff' : isScale ? '#d8daff' : '#f0f0f0';
+    html += `<rect id="pk-${k.midi}" data-base-fill="${base}" data-is-black="0"
+               x="${x}" y="0" width="${ww-1}" height="${wh}" rx="3" fill="${base}" stroke="#555" stroke-width="0.5"/>`;
+    if (k.pc === 0)
+      html += `<text x="${x+ww/2}" y="${wh-6}" text-anchor="middle" font-size="8" fill="#888">C${k.octave}</text>`;
   });
 
-  // Black key positions: C# D# F# G# A#
-  const blackOffsets = { 1: 0.65, 3: 1.65, 6: 3.65, 8: 4.65, 10: 5.65 };
+  const blackOffsets = { 1:0.65, 3:1.65, 6:3.65, 8:4.65, 10:5.65 };
   for (let o = startOct; o < startOct + octaves; o++) {
-    const octaveStart = (o - startOct) * 7 * ww;
-    Object.entries(blackOffsets).forEach(([pc, offset]) => {
-      const midiVal = (o+1)*12 + parseInt(pc);
-      const x       = octaveStart + offset * ww;
-      const isActive = activeNotes.has(midiVal);
-      const isScale  = scaleNotes.has(parseInt(pc));
-      let fill = '#222';
-      if (isActive) fill = '#9b59f5';
-      else if (isScale) fill = '#3a3a6a';
-      html += `<rect x="${x}" y="0" width="${bw}" height="${bh}" rx="2" ry="2"
-                 fill="${fill}" stroke="#111" stroke-width="0.5"/>`;
+    const octStart = (o - startOct) * 7 * ww;
+    Object.entries(blackOffsets).forEach(([pc, off]) => {
+      const midi  = (o+1)*12 + parseInt(pc);
+      const x     = octStart + off * ww;
+      const isScale = scaleSet.has(parseInt(pc));
+      const base  = isScale ? '#3a3a6a' : '#222';
+      html += `<rect id="pk-${midi}" data-base-fill="${base}" data-is-black="1"
+                 x="${x}" y="0" width="${bw}" height="${bh}" rx="2" fill="${base}" stroke="#111" stroke-width="0.5"/>`;
     });
   }
 
-  // Legend
   html += `
-    <g transform="translate(4, ${wh - 18})">
-      <rect x="0" y="0" width="10" height="10" rx="2" fill="#5b6af0"/>
-      <text x="13" y="9" font-size="9" fill="#888">Active note</text>
-      <rect x="80" y="0" width="10" height="10" rx="2" fill="#d8daff"/>
-      <text x="93" y="9" font-size="9" fill="#888">In scale</text>
-      <rect x="150" y="0" width="10" height="10" rx="2" fill="#b3b8ff"/>
-      <text x="163" y="9" font-size="9" fill="#888">Root</text>
+    <g transform="translate(4,${wh-18})">
+      <rect x="0"   y="0" width="10" height="10" rx="2" fill="#5b6af0"/>
+      <text x="13"  y="9" font-size="9" fill="#888">Playing now</text>
+      <rect x="90"  y="0" width="10" height="10" rx="2" fill="#d8daff"/>
+      <text x="103" y="9" font-size="9" fill="#888">In scale</text>
+      <rect x="160" y="0" width="10" height="10" rx="2" fill="#b3b8ff"/>
+      <text x="173" y="9" font-size="9" fill="#888">Root</text>
     </g>`;
 
   svg.innerHTML = html;
 }
 
-// ── Track tabs & content ──────────────────────────────────────────────────
+// ── Track tabs ────────────────────────────────────────────────────────────
 const TRACK_ORDER = [
-  { id: 'full',   label: 'Full Mix', dotColor: '#5b6af0' },
-  { id: 'bass',   label: 'Bass',     dotColor: '#e74c3c' },
-  { id: 'mid',    label: 'Mid',      dotColor: '#2ecc71' },
-  { id: 'treble', label: 'Lead',     dotColor: '#9b59f5' },
+  { id:'full',   label:'Full Mix', dotColor:'#5b6af0' },
+  { id:'bass',   label:'Bass',     dotColor:'#e74c3c' },
+  { id:'mid',    label:'Mid',      dotColor:'#2ecc71' },
+  { id:'treble', label:'Lead',     dotColor:'#9b59f5' },
 ];
 
 function renderTracks(data) {
@@ -678,9 +1007,9 @@ function renderTracks(data) {
   const tracks    = data.tracks || {};
 
   tabsEl.innerHTML = TRACK_ORDER.map(t => {
-    const has = tracks[t.id] && (tracks[t.id].notes.length > 0 || tracks[t.id].chords.length > 0);
-    return `<button class="tab ${t.id === activeTrack ? 'active' : ''}"
-               data-track="${t.id}">
+    const has = tracks[t.id] &&
+      (tracks[t.id].notes.length > 0 || tracks[t.id].chords.length > 0);
+    return `<button class="tab ${t.id === activeTrack ? 'active' : ''}" data-track="${t.id}">
                <span class="tab-dot" style="background:${t.dotColor}"></span>
                ${t.label}${!has ? ' <span style="opacity:.4;font-size:.75rem">(silent)</span>' : ''}
              </button>`;
@@ -692,6 +1021,11 @@ function renderTracks(data) {
       tabsEl.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderTrackContent(data, activeTrack, contentEl);
+      // Redraw roll at current time if playing
+      if (isPlaying && audioEl) {
+        const beat = (audioEl.currentTime * (data.tempo_bpm || 120)) / 60;
+        redrawPianoRoll(activeTrack, beat);
+      }
     });
   });
 
@@ -702,15 +1036,17 @@ function renderTrackContent(data, trackId, container) {
   const track = (data.tracks || {})[trackId];
   if (!track) { container.innerHTML = '<p class="empty">No data.</p>'; return; }
 
-  const color = NOTE_COLORS[trackId] || '#5b6af0';
-  const trackClass = trackId === 'bass' ? 'bass' : trackId === 'mid' ? 'mid' : trackId === 'treble' ? 'treble' : '';
+  const color      = NOTE_COLORS[trackId] || '#5b6af0';
+  const chipClass  = trackId === 'bass' ? 'bass' : trackId === 'mid' ? 'mid' :
+                     trackId === 'treble' ? 'treble' : '';
+  const bpm        = data.tempo_bpm || 120;
 
   let html = '';
 
-  // Mini waveform
+  // Track waveform canvas
   html += `<canvas class="track-wave" id="trackWave_${trackId}" height="60"></canvas>`;
 
-  // Track meta
+  // Meta badges
   const keyConf = Math.round((track.key_confidence || 0) * 100);
   html += `<div class="summary-row" style="margin-bottom:1rem">`;
   if (track.key)       html += `<span class="badge badge-key">Key: ${track.key} (${keyConf}%)</span>`;
@@ -723,24 +1059,19 @@ function renderTrackContent(data, trackId, container) {
       <rect x="1" y="4" width="8" height="6" rx="4" fill="currentColor"/>
       <line x1="9" y1="4" x2="9" y2="1" stroke="currentColor" stroke-width="1.5"/>
       <line x1="9" y1="1" x2="13" y2="2" stroke="currentColor" stroke-width="1.5"/>
-    </svg>
-    Notes (${track.notes.length})
-  </h2>`;
+    </svg>Notes (${track.notes.length})</h2>`;
 
   if (track.notes.length === 0) {
     html += `<p class="empty" style="text-align:left;padding:.5rem 0">No pitched notes detected in this band.</p>`;
   } else {
-    // Note roll canvas (rendered after DOM insert)
     html += `<div class="note-roll-wrap"><canvas id="noteRoll_${trackId}" height="160" style="min-width:400px;border-radius:6px;"></canvas></div>`;
-
-    // Note chips
     html += `<div class="note-list" style="margin-top:.75rem">`;
-    // Deduplicate and sort by start_beat
-    const sorted = [...track.notes].sort((a,b) => a.start_beat - b.start_beat);
-    sorted.forEach(n => {
-      html += `<span class="note-chip ${trackClass}" title="Beat ${n.start_beat} | ${n.frequency}Hz | conf ${Math.round(n.confidence*100)}%">
-                 ${n.note}
-               </span>`;
+    [...track.notes].sort((a,b) => a.start_beat - b.start_beat).forEach(n => {
+      const s = n.start_sec != null ? n.start_sec.toFixed(3) : ((n.start_beat*60)/bpm).toFixed(3);
+      const e = n.end_sec   != null ? n.end_sec.toFixed(3)   : (((n.start_beat+n.duration_beats)*60)/bpm).toFixed(3);
+      html += `<span class="note-chip ${chipClass}" data-start="${s}" data-end="${e}"
+                 title="Beat ${n.start_beat} | ${n.frequency}Hz | conf ${Math.round(n.confidence*100)}%">
+                 ${n.note}</span>`;
     });
     html += `</div>`;
   }
@@ -753,132 +1084,114 @@ function renderTrackContent(data, trackId, container) {
       <circle cx="11" cy="10" r="2" fill="currentColor"/>
       <line x1="5" y1="10" x2="5" y2="3" stroke="currentColor" stroke-width="1.5"/>
       <line x1="9" y1="10" x2="9" y2="1" stroke="currentColor" stroke-width="1.5"/>
-    </svg>
-    Chords (${track.chords.length})
-  </h2>`;
+    </svg>Chords (${track.chords.length})</h2>`;
 
   if (track.chords.length === 0) {
     html += `<p class="empty" style="text-align:left;padding:.5rem 0">No chords detected.</p>`;
   } else {
     html += `<div class="chord-list">`;
     track.chords.forEach(c => {
+      const s    = c.start_sec != null ? c.start_sec.toFixed(3) : ((c.start_beat*60)/bpm).toFixed(3);
+      const e    = c.end_sec   != null ? c.end_sec.toFixed(3)   : (((c.start_beat+c.duration_beats)*60)/bpm).toFixed(3);
       const conf = Math.round(c.confidence * 100);
-      html += `<span class="chord-chip" title="Beat ${c.start_beat} | ${c.notes.join(',')} | ${conf}% confidence">
-                 ${c.chord} <span style="opacity:.5;font-size:.75em">${conf}%</span>
-               </span>`;
+      html += `<span class="chord-chip" data-start="${s}" data-end="${e}"
+                 title="Beat ${c.start_beat} | ${c.notes.join(',')} | ${conf}% confidence">
+                 ${c.chord} <span style="opacity:.5;font-size:.75em">${conf}%</span></span>`;
     });
     html += `</div>`;
   }
 
-  // ── Scale / key notes for this band ──
+  // ── Scale notes ──
   if (track.key) {
-    const parts = track.key.split(' ');
-    const root  = parts[0];
-    const mode  = parts[1] || 'major';
-    const rootIdx = NOTE_NAMES.indexOf(root);
-    const intervals = mode === 'minor' ? MINOR_SCALE : MAJOR_SCALE;
+    const [root, mode] = track.key.split(' ');
+    const rootIdx  = NOTE_NAMES.indexOf(root);
+    const ivals    = mode === 'minor' ? MINOR_SCALE : MAJOR_SCALE;
     html += `<div style="margin-top:1rem">
       <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.06em">Scale notes</div>
       <div class="scale-notes">`;
-    intervals.forEach(i => {
-      const pc = NOTE_NAMES[(rootIdx + i) % 12];
-      html += `<span class="scale-note ${i === 0 ? 'root' : ''}">${pc}</span>`;
+    ivals.forEach(i => {
+      html += `<span class="scale-note ${i===0?'root':''}">${NOTE_NAMES[(rootIdx+i)%12]}</span>`;
     });
     html += `</div></div>`;
   }
 
   container.innerHTML = html;
 
-  // Draw track waveform
+  // ── Build track waveform offscreen ──
   const wc = document.getElementById(`trackWave_${trackId}`);
-  if (wc && track.waveform_samples && track.waveform_samples.length > 0) {
-    wc.width  = wc.offsetWidth * window.devicePixelRatio;
-    wc.height = wc.offsetHeight * window.devicePixelRatio;
-    const ctx = wc.getContext('2d');
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    drawStaticWaveCtx(ctx, track.waveform_samples, wc.offsetWidth, wc.offsetHeight, color);
+  if (wc) {
+    const W = wc.offsetWidth, H = wc.offsetHeight;
+    wc.width  = W * DPR;
+    wc.height = H * DPR;
+    const liveCtx = wc.getContext('2d');
+    liveCtx.scale(DPR, DPR);
+
+    if (track.waveform_samples && track.waveform_samples.length > 0) {
+      const off = document.createElement('canvas');
+      off.width  = W * DPR;
+      off.height = H * DPR;
+      const offCtx = off.getContext('2d');
+      offCtx.scale(DPR, DPR);
+      drawStaticWaveToCtx(offCtx, track.waveform_samples, W, H, color);
+      trackWaveCache[trackId] = { offscreen: off, W, H };
+      liveCtx.drawImage(off, 0, 0);
+    }
   }
 
-  // Draw piano roll
+  // ── Build piano roll offscreen ──
   if (track.notes.length > 0) {
-    drawPianoRoll(trackId, track, color);
+    buildPianoRollOffscreen(trackId, track, color);
   }
 }
 
-function drawStaticWaveCtx(ctx, samples, W, H, color) {
-  ctx.fillStyle = '#0d0f14';
-  ctx.fillRect(0, 0, W, H);
-  if (!samples || samples.length === 0) return;
-  ctx.beginPath();
-  ctx.strokeStyle = color;
-  ctx.lineWidth   = 1.5;
-  const mid  = H / 2;
-  const step = W / samples.length;
-  const maxA = Math.max(...samples.map(Math.abs)) || 1;
-  ctx.moveTo(0, mid);
-  for (let i = 0; i < samples.length; i++) {
-    ctx.lineTo(i * step, mid - (samples[i] / maxA) * mid * 0.85);
-  }
-  ctx.stroke();
-  // Center line
-  ctx.beginPath();
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth   = 1;
-  ctx.moveTo(0, mid); ctx.lineTo(W, mid);
-  ctx.stroke();
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Piano roll: build offscreen + initial draw ─────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ── Piano roll canvas ─────────────────────────────────────────────────────
-function drawPianoRoll(trackId, track, color) {
+function buildPianoRollOffscreen(trackId, track, color) {
   const canvas = document.getElementById(`noteRoll_${trackId}`);
   if (!canvas) return;
 
-  const notes = track.notes;
-  if (!notes || notes.length === 0) return;
+  const notes    = track.notes;
+  const W        = Math.max(600, canvas.parentElement.offsetWidth || 600);
+  const H        = 160;
+  const midiMin  = Math.min(...notes.map(n => n.midi)) - 2;
+  const midiMax  = Math.max(...notes.map(n => n.midi)) + 2;
+  const midiRange= Math.max(midiMax - midiMin, 12);
+  const maxBeat  = Math.max(...notes.map(n => n.start_beat + n.duration_beats)) + 0.5;
+  const minBeat  = Math.min(...notes.map(n => n.start_beat));
+  const beatRange= Math.max(maxBeat - minBeat, 4);
+  const scaleX   = (W - 40) / beatRange;
+  const scaleY   = (H - 20) / midiRange;
 
-  const W = Math.max(600, canvas.parentElement.offsetWidth || 600);
-  const H = 160;
-  canvas.width  = W * window.devicePixelRatio;
-  canvas.height = H * window.devicePixelRatio;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  const p = { W, H, midiMin, midiMax, midiRange, minBeat, beatRange, scaleX, scaleY, notes, color };
+
+  // Offscreen canvas
+  const off = document.createElement('canvas');
+  off.width  = W * DPR;
+  off.height = H * DPR;
+  const ctx  = off.getContext('2d');
+  ctx.scale(DPR, DPR);
 
   // Background
   ctx.fillStyle = '#0d0f14';
   ctx.fillRect(0, 0, W, H);
 
-  // Grid lines every octave
-  const midiMin = Math.min(...notes.map(n => n.midi)) - 2;
-  const midiMax = Math.max(...notes.map(n => n.midi)) + 2;
-  const midiRange = Math.max(midiMax - midiMin, 12);
-
-  // Time range
-  const maxBeat = Math.max(...notes.map(n => n.start_beat + n.duration_beats)) + 0.5;
-  const minBeat = Math.min(...notes.map(n => n.start_beat));
-  const beatRange = Math.max(maxBeat - minBeat, 4);
-
-  const scaleX = (W - 40) / beatRange;
-  const scaleY = (H - 20) / midiRange;
-
-  // Horizontal grid (octave boundaries)
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-  ctx.lineWidth   = 1;
+  // Horizontal octave lines
+  ctx.lineWidth = 1;
   for (let m = Math.floor(midiMin/12)*12; m <= midiMax; m += 12) {
     const y = H - 10 - (m - midiMin) * scaleY;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W, y); ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.font      = '9px monospace';
+    ctx.font = '9px monospace';
     ctx.fillText(`C${Math.floor(m/12)-1}`, 2, y + 3);
   }
 
-  // Vertical beat grid
+  // Vertical beat lines
   for (let b = Math.ceil(minBeat); b <= maxBeat; b++) {
     const x = 40 + (b - minBeat) * scaleX;
-    ctx.strokeStyle = b % 4 === 0
-      ? 'rgba(255,255,255,0.12)'
-      : 'rgba(255,255,255,0.04)';
+    ctx.strokeStyle = b % 4 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)';
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - 20); ctx.stroke();
   }
 
@@ -888,64 +1201,64 @@ function drawPianoRoll(trackId, track, color) {
     const y = H - 10 - (n.midi - midiMin + 1) * scaleY;
     const w = Math.max(3, n.duration_beats * scaleX - 1);
     const h = Math.max(4, scaleY - 1);
-    const alpha = 0.5 + n.confidence * 0.5;
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = 0.5 + n.confidence * 0.5;
     ctx.fillStyle   = color;
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, 2);
     ctx.fill();
-    // Note label
     if (w > 20) {
       ctx.globalAlpha = 1;
       ctx.fillStyle   = '#fff';
-      ctx.font        = `bold ${Math.min(10, h - 2)}px monospace`;
-      ctx.fillText(n.note, x + 3, y + h - 2);
+      ctx.font        = `bold ${Math.min(10, h-2)}px monospace`;
+      ctx.fillText(n.note, x+3, y+h-2);
     }
   });
   ctx.globalAlpha = 1;
 
-  // Time axis label
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.font = '9px sans-serif';
   ctx.fillText('beat →', W - 45, H - 4);
+
+  rollCache[trackId] = { offscreen: off, p };
+
+  // Initial blit to visible canvas
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.getContext('2d').drawImage(off, 0, 0);
 }
 
-// ── Overtones ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ── Overtones ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
 function renderOvertones(data) {
   const fullTrack = (data.tracks || {}).full;
-  const overtones = (fullTrack && fullTrack.overtones) ? fullTrack.overtones : [];
+  const overtones = fullTrack?.overtones || [];
   const el        = document.getElementById('overtoneContent');
 
-  if (!overtones || overtones.length === 0) {
+  if (!overtones.length) {
     el.innerHTML = '<p class="empty">No prominent overtone series detected.</p>';
     return;
   }
 
-  let html = '';
-  overtones.forEach((ov, idx) => {
-    html += `<div class="overtone-block">
+  el.innerHTML = overtones.map((ov, idx) => `
+    <div class="overtone-block">
       <h4>Fundamental #${idx+1}: <strong style="color:var(--text)">${ov.fundamental_note}</strong>
-          <span style="color:var(--muted);font-size:.8em"> — ${ov.fundamental_hz} Hz</span>
-      </h4>
-      <div class="harmonic-bars">`;
-
-    ov.harmonics.forEach(h => {
-      const pct = Math.round(h.relative_amplitude * 100);
-      const label = h.n === 1 ? 'fund.' : `×${h.n}`;
-      html += `<div class="harmonic-row">
-        <span class="h-label">${label}</span>
-        <span class="h-note">${h.note}</span>
-        <span class="h-hz">${h.hz} Hz</span>
-        <div class="harmonic-bar-bg">
-          <div class="harmonic-bar" style="width:${pct}%"></div>
-        </div>
-      </div>`;
-    });
-
-    html += `</div></div>`;
-  });
-
-  el.innerHTML = html;
+          <span style="color:var(--muted);font-size:.8em"> — ${ov.fundamental_hz} Hz</span></h4>
+      <div class="harmonic-bars">
+        ${ov.harmonics.map(h => `
+          <div class="harmonic-row">
+            <span class="h-label">${h.n===1?'fund.':'×'+h.n}</span>
+            <span class="h-note">${h.note}</span>
+            <span class="h-hz">${h.hz} Hz</span>
+            <div class="harmonic-bar-bg">
+              <div class="harmonic-bar" style="width:${Math.round(h.relative_amplitude*100)}%"></div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
 }
 </script>
 </body>
